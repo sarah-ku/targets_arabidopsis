@@ -96,13 +96,6 @@ for(motif in motif.list)
     fmat <- apply(rrfm,1,function(x) PPMp(x,mut))
     colnames(ppm) <- paste(1:mlen)
     
-    #getScore <- function(pp,seq)
-    #{
-    #  return(sum(diag(pp[strsplit(seq,"")[[1]],])))
-    #}
-    
-    #getScore(ppm,seq=c("GGACG"))
-    
     
     rrfm_freq_list[[motif]][[paste(size)]] <- list("B"=B,"fmat"=fmat)
   }
@@ -181,7 +174,6 @@ fimo --verbosity 4 --thresh 0.05 --max-stored-scores 1000000000 ../../motif_file
 #######################OPEN AND PROCESS#########################
 #################################################################
 
-
 #####random background nucleotides in transcriptome (make it expressed genes)
 gtf_expr <- unique(gtfGR[gtfGR$gene_id %in% genes.list$genes.intersect])
 gtf_expr_df <- as.data.frame(gtf_expr)
@@ -240,15 +232,13 @@ plotDens(bs=0.01,dr_rand=dr_rand,dr=dr,dr_ind=dr_ind,inc_groups=F,inc_int=T,to.a
 
 
 
-
-
 for(mot in names(motGR))
 {
   twGR <- motGR[[mot]]
   dr <- returnDens(twGR,gtfGR)
   dr_rand <- returnDens(randGR,gtfGR)
-  pdf(paste0("normalised_enrichment_plot_",mot,".pdf"),width=8,height=6)
-  plotNE(bs=0.01,dr_rand=dr_rand,dr=dr,dr_ind=dr_ind,inc_groups=F,inc_int=T,to.add=F,col.no=1,no.samps=25,to.smooth=F,mytitle = mot)
+  pdf(paste0("normalised_enrichment_plot_",mot,".pdf"),width=6.5,height=6)
+  plotNE(bs=0.02,dr_rand=dr_rand,dr=dr,dr_ind=dr_ind,inc_groups=F,inc_int=T,to.add=F,col.no=1,no.samps=25,to.smooth=F,mytitle = mot)
   dev.off()
 }
 

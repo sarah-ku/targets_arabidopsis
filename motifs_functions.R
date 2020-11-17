@@ -88,15 +88,15 @@ plotNE <- function(bs=0.005,dr_rand,dr,dr_ind,inc_groups=T,inc_int=T,to.add=F,co
       
       polygon(x,y, col = brewer.pal("Set1",n = 6)[col.no], border = NA)
       points(y=smooth.spline(rtab_mean)$y,x=xls,col="black",lty=1,type="l")
-      points(y=smooth.spline(rtab_lower)$y,x=xls,type="l",col="grey",lty=2)
-      points(y=smooth.spline(rtab_upper)$y,x=xls,type="l",col="grey",lty=2)
+      #points(y=smooth.spline(rtab_lower)$y,x=xls,type="l",col="grey",lty=2)
+      #points(y=smooth.spline(rtab_upper)$y,x=xls,type="l",col="grey",lty=2)
     }else{
       y <- c(rtab_lower, rev(rtab_upper))
       
       polygon(x,y, col = brewer.pal("Set1",n = 6)[col.no], border = NA)
       points(y=rtab,x=xls,col="black",lty=1,type="l")
-      points(y=rtab_lower,x=xls,type="l",col="grey",lty=2)
-      points(y=rtab_upper,x=xls,type="l",col="grey",lty=2)
+      #points(y=rtab_lower,x=xls,type="l",col="grey",lty=2)
+      #points(y=rtab_upper,x=xls,type="l",col="grey",lty=2)
     }
   }else{
     points(y=rtab,x=xls,col=brewer.pal("Set1",n = 6)[col.no],lty=1,lwd=2,type="l")

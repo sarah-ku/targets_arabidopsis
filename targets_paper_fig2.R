@@ -1,5 +1,6 @@
 source("/home/sarah/github/targets_arabidopsis/targets_paper_open.R")
 source("/home/sarah/github/targets_arabidopsis/ECT2_hyperTRIBE_model_data.R")
+#source("/home/sarah/github/targets_arabidopsis/ECT3_hyperTRIBE_model_data.R")
 
 unlist(lapply(pos.list.ECT2,length))
 unlist(lapply(pos.list.ECT3,length))
@@ -9,18 +10,7 @@ save_dir_s2 <-  "/binf-isilon/alab/projects/ECT2_TC/hyperTRIBE/pipeline/model_sh
 save_dir_r3 <-  "/binf-isilon/alab/projects/ECT2_TC/ECT3_hyperTRIBE/pipeline/model_roots_single/saved_output/"
 save_dir_s3 <-  "/binf-isilon/alab/projects/ECT2_TC/ECT3_hyperTRIBE/pipeline/model_shoots_single/saved_output/"
 
-#overlap positions
-#install.packages("eulerr")
-library(eulerr)
-#install.packages("GeneOverlap")
-library(GeneOverlap)
-library(systemPipeR)
-library(gridExtra)
-library(ggplot2)
-library(Biostrings)
-library(BSgenome.Athaliana.TAIR.TAIR9)
-require(ggplot2)
-require(ggseqlogo)
+
 library(cluster)
 setwd("/binf-isilon/alab/projects/ECT2_TC/hyperTRIBE/pipeline/plots/")
 getwd()
@@ -40,11 +30,28 @@ colnames(my.df) <- c("sample","treat","adar")
 my.df <- my.df[c(1:5,7:10,6,11:15,17:20,16),]
 my.df$sample <- factor(as.vector(my.df$sample),levels=as.vector(my.df$sample))
 
-p1 <- ggplot(my.df,aes(x=sample,y=adar,fill=treat),col=treat) + geom_bar(stat="identity") + theme_bw() +   theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5)) + 
+p1 <- ggplot(my.df,aes(x=sample,y=adar,fill=treat),col=treat) + geom_bar(stat="identity",colour="black") + theme_bw() +   theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5)) + 
   ggtitle("ADAR (TPM)")
 p1
-ggsave(filename="adar_expression_over_samples_roots_single.pdf",plot = p1,width = 6,height=4)
-#t.test(adar[1:5],adar[6:10])
+p1 <- p1 + theme_classic()
+ggsave(filename="adar_expression_over_samples_single_ECT2.pdf",plot = p1,width = 6,height=4)
+
+
+adar <- tpm.mat3["ADARclone",]
+adar <- adar[grep("c|e",names(adar))]
+treat <- rep("ECT3:ADAR",length(adar))
+treat[grep("c",names(adar))] <- "WT"
+my.df <- data.frame(names(adar),treat,adar)
+colnames(my.df) <- c("sample","treat","adar")
+my.df <- my.df[c(1:5,7:10,6,11:15,17:20,16),]
+my.df$sample <- factor(as.vector(my.df$sample),levels=as.vector(my.df$sample))
+
+p1 <- ggplot(my.df,aes(x=sample,y=adar,fill=treat),col=treat) + geom_bar(stat="identity",colour="black") + theme_bw() +   theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5)) + 
+  ggtitle("ADAR (TPM)")
+p1
+p1 <- p1 + theme_classic()
+p1
+ggsave(filename="adar_expression_over_samples_single_ECT3.pdf",plot = p1,width = 6,height=4)
 
 
 ################################################################################################
@@ -52,8 +59,8 @@ ggsave(filename="adar_expression_over_samples_roots_single.pdf",plot = p1,width 
 ################################################################################################
 
 names(pos.list)
-ht.shoots <- names(pos.list.ECT2[["shoots"]])
-ht.roots <- names(pos.list.ECT2[["roots"]])
+ht.shoots <- names(pos.list.ECT3[["shoots"]])
+ht.roots <- names(pos.list.ECT3[["roots"]])
 
 expressed.both <- intersect(genes.list$genes.shoots.expressed,genes.list$genes.roots.expressed)
 genes.shoots.expressed <- genes.list$genes.shoots[genes.list$genes.shoots %in% expressed.both]
@@ -74,7 +81,7 @@ p2 <- makeEulerDiagram(list("ht.shoots"=ht.shoots, "ht.roots"=ht.roots),
 p1
 p3 <- grid.arrange(p1,p2,ncol=2)
 p3
-ggsave(p3,filename=paste0("HT_single_overlaps_expressed_common.pdf"),width=10,height=5)
+ggsave(p3,filename=paste0("HT_single_overlaps_expressed_common_ECT3.pdf"),width=10,height=5)
 
 
 ################################################################################################
@@ -86,55 +93,93 @@ names(newseqs) <- seqnames(seqinfo(Athaliana))
 Athaliana <- renameSeqlevels(Athaliana, newseqs)
 seqnames(seqinfo(Athaliana))
 
-posGRseq <- pos.list.ECT2[["roots"]]
-mcols(posGRseq) <- NULL
-posGRseq <- posGRseq[as.vector(strand(posGRseq)) %in% c("+","-")]
-to.add <- 2
-my.seqs <- (getSeq(Athaliana, posGRseq+to.add))
-my.mat <- as.matrix(my.seqs)
-center <- to.add+1
-apply(my.mat,2,table)
 
-my.seqs <- my.seqs[my.mat[,center]=="A"]
-my.mat <- my.mat[my.mat[,center]=="A",]
+posGRseq_list <- c(pos.list.ECT2[1:2],pos.list.ECT3[1:2])
+project_id <- c("ECT2_roots","ECT2_shoots","ECT3_roots","ECT3_shoots")
 
-my.seqs <- as.vector(my.seqs)
-gsub("T","U",my.seqs)
+for(i in 1:4)
+{
+  posGRseq <- posGRseq_list[[i]]
+  
+  mcols(posGRseq) <- NULL
+  posGRseq <- posGRseq[as.vector(strand(posGRseq)) %in% c("+","-")]
+  to.add <- 2
+  my.seqs <- (getSeq(Athaliana, posGRseq+to.add))
+  my.mat <- as.matrix(my.seqs)
+  center <- to.add+1
+  apply(my.mat,2,table)
+  
+  my.seqs <- my.seqs[my.mat[,center]=="A"]
+  my.mat <- my.mat[my.mat[,center]=="A",]
+  
+  my.seqs <- as.vector(my.seqs)
+  gsub("T","U",my.seqs)
+  
+  p1 <- ggseqlogo(as.vector(my.seqs))
+  p1
+  ggsave(plot = p1,file=paste0("ECT2_hyperTRIBE_sequence_",project_id[i],".pdf"),width=3,height=2)
+}
 
-p1 <- ggseqlogo(as.vector(my.seqs))
-p1
 
-project_id <- "ECT2_roots"
-ggsave(plot = p1,file=paste0("ECT2_hyperTRIBE_sequence_",project_id,".pdf"),width=3,height=2)
+
+
+
 
 ################################################################################################
 ##DENSITY PLOT of of EDITING PROPORTIONS of ect2-1 ECT2-FLAG-ADAR in roots – low!! (shoots in EXT.2A)#
 ################################################################################################
+mycols <- brewer.pal(8,"Set1")
 
+dens.list <- list()
+dens.list[["ECT2 roots"]] <- density(sqrt(pos.list.ECT2$roots$prop))
+dens.list[["ECT2 shoots"]] <- density(sqrt(pos.list.ECT2$shoots$prop))
+dens.list[["ECT3 roots"]] <- density(sqrt(pos.list.ECT3$roots$prop))
+dens.list[["ECT3 shoots"]] <- density(sqrt(pos.list.ECT3$shoots$prop))
 
+mseqs <- c(c(0.005,0.01,0.02,0.05),seq(0,1,by=0.1))
+pdf("densities_of_editing_all_separately.pdf",width=10,height=10)
+par(mfrow=c(2,2))
+for(i in 1:length(dens.list))
+{
+  plot(dens.list[[i]],xlab="",xaxt="n",main=names(dens.list)[i],ylab="Editing proportion")
+  axis(1,sqrt(mseqs),mseqs,las=2)
+}
+dev.off()
 
+pdf("densities_of_editing_all_together.pdf",width=4,height=4)
+par(mfrow=c(1,1))
+plot(dens.list[[1]],xlab="",xaxt="n",main="densities together",ylim=c(0,7.3),col=mycols[1],lwd=1,ylab="Editing proportion")
+axis(1,sqrt(mseqs),mseqs,las=2)
+for(i in 2:length(dens.list))
+{
+  points(dens.list[[i]]$x,dens.list[[i]]$y,type="l",col=mycols[i],lwd=1)
+}
+legend("topright",names(dens.list),lwd=1,col=mycols)
+dev.off()
 
 
 ################################################################################################
 ###SCATTER PLOT with editing proportions in roots vs. shoots of targets
 ################################################################################################
 
-
+library(scales)
 prop_scatter <- function(GR1,GR2,name1="shoots_single",name2="roots_single")
 {
   common.pos <- intersect(names(GR1),names(GR2))
   props <- data.frame("r1"=GR1[common.pos]$prop,"r2"=GR2[common.pos]$prop)
 
-  scatterPlot <- ggplot(props,aes(x=sqrt(r1), y=sqrt(r2))) + 
-    geom_bin2d(bins=200) + xlim(0,1) + ylim(0,1) +
-    scale_color_manual(values = c('#999999','#E69F00')) + 
-    geom_abline(lty=2) + xlab(paste0("SQRT editing proportion ",name1)) + ylab(paste0("SQRT editing proportion ",name2)) +
+  mybreaks <- c(0,0.01,0.02,0.04,0.06,seq(0.1,1,by=0.1))
+  scatterPlot <- ggplot(props,aes(x=(r1), y=(r2))) + 
+    geom_bin2d(bins=200) + scale_x_continuous(breaks = mybreaks,trans='sqrt',limits=c(0,1)) + 
+    scale_y_continuous(breaks = mybreaks,trans='sqrt',limits = c(0,1)) +
+    scale_color_manual(values = c('#999999','#E69F00')) +  
+    geom_abline(lty=2) + xlab(paste0("Editing proportion ",name1)) + ylab(paste0("Editing proportion ",name2)) +
     theme_classic()
   return(scatterPlot)
 }
 
 scatterPlot <- prop_scatter(pos.list.ECT2[["roots"]],pos.list.ECT2[["shoots"]],"roots_single_ECT2","shoots_single_ECT2")
-ggsave(plot=scatterPlot,file="ECT2_hyperTRIBE_roots_vs_shoots_single_proportions.pdf",width=4,height=3.2)
+ggsave(plot=scatterPlot,file="ECT2_hyperTRIBE_roots_vs_shoots_single_proportions.pdf",width=6,height=5)
 
 scatterPlot <- prop_scatter(pos.list.ECT3[["roots"]],pos.list.ECT3[["shoots"]],"roots_single_ECT3","shoots_single_ECT3")
 ggsave(plot=scatterPlot,file="ECT3_hyperTRIBE_roots_vs_shoots_single_proportions.pdf",width=4,height=3.2)
@@ -147,34 +192,136 @@ ggsave(plot=scatterPlot,file="hyperTRIBE_shoots_ECT2_vs_shoots_ECT3_single_propo
 
 
 ################################################################################################
+###roots hits which are either A-G or T-C
+################################################################################################
+# project_id <- "roots_single"
+# design_vector <- design_vector_roots_single
+# data_list <- data_list_roots[names(design_vector)]
+# locsGR <- locsGR_roots
+# model_dir <- "/binf-isilon/alab/projects/ECT2_TC/hyperTRIBE/pipeline/model_roots_single/very_lenient/"
+# save_dir <-  "/binf-isilon/alab/projects/ECT2_TC/hyperTRIBE/pipeline/model_roots_single/very_lenient/saved_output/"
+# quant.mat <- tpm.mat[,names(design_vector[design_vector=="control"])]
+# quant.vec <- rowMeans(quant.mat)
+# 
+my_edits <- rbind(c("A","G"),
+                  c("G","A"),
+                  c("T","C"),
+                  c("C","T"),
+                  c("A","T"),
+                  c("T","A"),
+                  c("G","T"),
+                  c("T","G"),
+                  c("G","C"),
+                  c("C","G"),
+                  c("A","C"),
+                  c("C","A"))
+# 
+# load("/binf-isilon/alab/projects/ECT2_TC/hyperTRIBE/pipeline/model_roots_single/very_lenient/saved_output/dxd.res.Rdat")
+# posGR <- getHits(res = dxd.res,stranded=F,fdr = 1,fold=-1000,addMeta = T,ncore=40,include_ref = T,refGR = locsGR,edits_of_interest=my_edits,design_vector=design_vector,data_list=data_list)
+#save(posGR,file="/binf-isilon/alab/projects/ECT2_TC/hyperTRIBE/pipeline/model_roots_single/very_lenient/saved_output/posGR_everything.Rdat")
+
+
+load(file="/binf-isilon/alab/projects/ECT2_TC/hyperTRIBE/pipeline/model_roots_single/very_lenient/saved_output/posGR_everything.Rdat")
+length(posGR)
+posGR <- posGR[posGR$padj<0.01 & posGR$tags_treat>10 & posGR$prop<1]
+types <- table(paste(posGR$ref,posGR$targ,sep="-to-"))
+
+pdf("hits_by_type_supp_roots_ECT2_barplot.pdf",width=4,height=4)
+barplot(types,las=2,ylab="Number of hits",col="light blue",xlab="Edit type",main="Number of significant positions \n by edit type")
+dev.off()
+
+
+################################################################################################
 ###SCATTER PLOT with editing proportions in roots vs. shoots of targets
 ################################################################################################
 
 
-prop_scatter <- function(GR1,name="ECT2_root")
+
+prop_scatter <- function(props,name="ECT2_root")
 {
   #common.pos <- intersect(names(GR1),names(GR2))
-  props <- data.frame("r1"=GR1$prop,"r2"=GR1$prop_ctrl)
+  props <- data.frame("r1"=props$treat,"r2"=props$control,"sig"=props$sig)
+  props <- props[!is.na(props[,1]),]
   
-  scatterPlot <- ggplot(props,aes(x=sqrt(r1), y=sqrt(r2))) + 
-    geom_bin2d(bins=200) + xlim(0,1) + ylim(0,1) +
+  scatterPlot <- ggplot(props,aes(x=(r1), y=(r2),fill=sig)) + 
+    geom_bin2d(bins=200) + scale_x_continuous(trans='sqrt',limits=c(0,1)) + scale_y_continuous(trans='sqrt',limits = c(0,1)) +
     scale_color_manual(values = c('#999999','#E69F00')) + 
-    geom_abline(lty=2) + xlab(paste0("SQRT editing proportion in fusion ",name)) + ylab(paste0("SQRT editing proportion in WT ",name)) +
+    geom_abline(lty=2) + xlab(paste0("Editing proportion in fusion ",name)) + ylab(paste0("Editing proportion in WT ",name)) +
     theme_classic()
+  scatterPlot
   return(scatterPlot)
 }
 
-scatterPlot <- prop_scatter(pos.list.ECT2[["roots"]],"ECT2_root")
-ggsave(plot=scatterPlot,file="hyperTRIBE_roots_ECT2_WT_vs_fusion_proportions.pdf",width=4,height=3.2)
 
-scatterPlot <- prop_scatter(pos.list.ECT2[["shoots"]],"ECT2_shoots")
-ggsave(plot=scatterPlot,file="hyperTRIBE_shoots_ECT2_WT_vs_fusion_proportions.pdf",width=4,height=3.2)
+############################################################################################
+############################################################################################
 
-scatterPlot <- prop_scatter(pos.list.ECT3[["roots"]],"ECT3_roots")
-ggsave(plot=scatterPlot,file="hyperTRIBE_roots_ECT3_WT_vs_fusion_proportions.pdf",width=4,height=3.2)
+names(locsGR_roots) <-paste(as.vector(seqnames(locsGR_roots)), start(locsGR_roots), sep = "_")
+data_list <- RNAeditR::restrict_data(data_list=data_list_roots,design_vector=design_vector_roots_single,min_samp_control=4,min_samp_treat=2,min_count=2,edits_of_interest=my_edits)
+ep_Roots <- RNAeditR::editingProportionsVsReference(data_list = data_list[names(which(design_vector_roots_single=="control"))],refGR = locsGR_roots[row.names(data_list[[1]])],stranded = F)
+ep_Roots_T <- RNAeditR::editingProportionsVsReference(data_list = data_list[names(which(design_vector_roots_single=="treat"))],refGR = locsGR_roots[row.names(data_list[[1]])],stranded = F)
 
-scatterPlot <- prop_scatter(pos.list.ECT3[["shoots"]],"ECT3_shoots")
-ggsave(plot=scatterPlot,file="hyperTRIBE_shoots_ECT3_WT_vs_fusion_proportions.pdf",width=4,height=3.2)
+edits_rootsAG_C <- ep_Roots[ep_Roots$ref=="A","edit.G"]
+edits_rootsAG_T <- ep_Roots_T[ep_Roots_T$ref=="A","edit.G"]
+
+edits_rootsTC_C <- ep_Roots[ep_Roots$ref=="T","edit.C"]
+edits_rootsTC_T <- ep_Roots_T[ep_Roots_T$ref=="T","edit.C"]
+
+edit_roots_C <- c(edits_rootsAG_C,edits_rootsTC_C)
+edit_roots_T <- c(edits_rootsAG_T,edits_rootsTC_T)
+
+edit_roots <- data.frame("control"=edit_roots_C,"treat"=edit_roots_T)
+row.names(edit_roots) <- c(row.names(ep_Roots[ep_Roots$ref=="A",]),row.names(ep_Roots[ep_Roots$ref=="T",]))
+
+edit_roots$sig <- "no"
+edit_roots[names(pos.list.ECT2$roots),]$sig <- "yes"
+#head(edit_roots)
+
+scatterPlot <- prop_scatter(edit_roots,"ECT2_root")
+scatterPlot
+ggsave(plot=scatterPlot,file="hyperTRIBE_roots_ECT2_WT_vs_fusion_proportions_ALL_with_sig.pdf",width=4,height=3.2)
+
+############################################################################################
+############################################################################################
+names(locsGR_shoots) <-paste(as.vector(seqnames(locsGR_shoots)), start(locsGR_shoots), sep = "_")
+
+data_list <- RNAeditR::restrict_data(data_list=data_list_shoots,design_vector=design_vector_shoots_single,min_samp_control=4,min_samp_treat=2,min_count=2,edits_of_interest=my_edits)
+ep_shoots <- RNAeditR::editingProportionsVsReference(data_list = data_list[names(which(design_vector_shoots_single=="control"))],refGR = locsGR_shoots[row.names(data_list[[1]])],stranded = F)
+ep_shoots_T <- RNAeditR::editingProportionsVsReference(data_list = data_list[names(which(design_vector_shoots_single=="treat"))],refGR = locsGR_shoots[row.names(data_list[[1]])],stranded = F)
+
+edits_shootsAG_C <- ep_shoots[ep_shoots$ref=="A","edit.G"]
+edits_shootsAG_T <- ep_shoots_T[ep_shoots_T$ref=="A","edit.G"]
+
+edits_shootsTC_C <- ep_shoots[ep_shoots$ref=="T","edit.C"]
+edits_shootsTC_T <- ep_shoots_T[ep_shoots_T$ref=="T","edit.C"]
+
+edit_shoots_C <- c(edits_shootsAG_C,edits_shootsTC_C)
+edit_shoots_T <- c(edits_shootsAG_T,edits_shootsTC_T)
+
+edit_shoots <- data.frame("control"=edit_shoots_C,"treat"=edit_shoots_T)
+row.names(edit_shoots) <- c(row.names(ep_shoots[ep_shoots$ref=="A",]),row.names(ep_shoots[ep_shoots$ref=="T",]))
+
+edit_shoots$sig <- "no"
+edit_shoots[names(pos.list.ECT2$shoots),]$sig <- "yes"
+
+scatterPlot <- prop_scatter(edit_shoots,"ECT2_shoots")
+#scatterPlot
+ggsave(plot=scatterPlot,file="hyperTRIBE_shoots_ECT2_WT_vs_fusion_proportions_ALL_with_sig.pdf",width=4,height=3.2)
+
+############################################################################################
+############################################################################################
+
+# scatterPlot <- prop_scatter(pos.list.ECT2[["roots"]],"ECT2_root")
+# ggsave(plot=scatterPlot,file="hyperTRIBE_roots_ECT2_WT_vs_fusion_proportions.pdf",width=4,height=3.2)
+# 
+# scatterPlot <- prop_scatter(pos.list.ECT2[["shoots"]],"ECT2_shoots")
+# ggsave(plot=scatterPlot,file="hyperTRIBE_shoots_ECT2_WT_vs_fusion_proportions.pdf",width=4,height=3.2)
+# 
+# scatterPlot <- prop_scatter(pos.list.ECT3[["roots"]],"ECT3_roots")
+# ggsave(plot=scatterPlot,file="hyperTRIBE_roots_ECT3_WT_vs_fusion_proportions.pdf",width=4,height=3.2)
+# 
+# scatterPlot <- prop_scatter(pos.list.ECT3[["shoots"]],"ECT3_shoots")
+# ggsave(plot=scatterPlot,file="hyperTRIBE_shoots_ECT3_WT_vs_fusion_proportions.pdf",width=4,height=3.2)
 
 
 #################################################################################
@@ -214,6 +361,39 @@ p1
 ggsave(plot=p1,file="PCA_significant_edit_sites_hyperTRIBE.pdf",width=9,height=4)
 
 
+###the same but for ECT3
+source("/home/sarah/github/targets_arabidopsis/ECT3_hyperTRIBE_model_data.R")
+
+
+posGR <- pos.list.ECT3[["roots"]]
+
+data_list <- data_list_roots[names(design_vector_roots_single)]
+data_list <- lapply(data_list,function(x) x[names(posGR),])
+
+edit_matrix_roots <- makeEditPCA(data_list=data_list,
+                                 editTypes=my_edits,
+                                 refGR=locsGR,
+                                 design_vector=design_vector_roots_single,refBased = F,posGR = posGR,give.mat = T)
+
+
+posGR <- pos.list.ECT3[["shoots"]]
+
+data_list <- data_list_shoots[names(design_vector_shoots_single)]
+data_list <- lapply(data_list,function(x) x[names(posGR),])
+
+edit_matrix_shoots <- makeEditPCA(data_list=data_list,
+                                  editTypes=my_edits,
+                                  refGR=locsGR,
+                                  design_vector=design_vector_shoots_single,refBased = F,posGR = posGR,give.mat = T)
+
+p1 <- grid.arrange(edit_matrix_roots[[1]],edit_matrix_shoots[[1]],ncol=2)
+p1
+ggsave(plot=p1,file="PCA_significant_edit_sites_hyperTRIBE_ECT3.pdf",width=9,height=4)
+
+
+source("/home/sarah/github/targets_arabidopsis/ECT2_hyperTRIBE_model_data.R")
+
+
 #################################################################################
 #################################################################################
 #Correlation between editing proportions and ADAR levels in roots (shoots in EXT.2B)
@@ -221,6 +401,7 @@ ggsave(plot=p1,file="PCA_significant_edit_sites_hyperTRIBE.pdf",width=9,height=4
 #################################################################################
 
 edit_m <- edit_matrix_roots[[2]]
+head(edit_m[round(edit.cor,2)==c(-0.3),])
 
 ADAR <- tpm.mat[1,colnames(edit_m)]
 ADARt <- ADAR[grep("e",colnames(edit_m))]
@@ -228,23 +409,15 @@ edit_m <- edit_m[,grep("e",colnames(edit_m))]
 head(edit_m)
 
 edit.cor <- apply(edit_m,1,function(x) cor(x,ADARt))
-edit.cor.bg <- apply(edit_m[,sample(1:4,4)],1,function(x) cor(x,ADARt[sample(1:4,4)]))
-  
-par(mfrow=c(1,2))
-hist(edit.cor,breaks=50,col="blue")
-hist(edit.cor.bg,col="grey",add=T,breaks=50)
+edit.cor.bg <- apply(edit_m,1,function(x) cor(x,ADARt[sample(1:length(ADARt),length(ADARt))]))
+sort(table(round(edit.cor,2)))
 
-hist(edit.cor.ctrl,breaks=50,col="blue")
-hist(edit.cor.bg.ctrl,col="grey",add=T,breaks=50)
-
-
-library(easyGgplot2)
 df <- melt(data.frame("edit.cor"=edit.cor,"edit.cor.bg"=edit.cor.bg))
 df$type <- "mut"
-df.ctrl <-  melt(data.frame("edit.cor"=edit.cor.ctrl,"edit.cor.bg"=edit.cor.bg.ctrl))
-df.ctrl$type <- "wt"
-df <- rbind(df,df.ctrl)
-head(df)
+#df.ctrl <-  melt(data.frame("edit.cor"=edit.cor.ctrl,"edit.cor.bg"=edit.cor.bg.ctrl))
+#df.ctrl$type <- "wt"
+#df <- rbind(df,df.ctrl)
+#head(df)
 
 p1 <- ggplot(df, aes(x=value,color=variable))+
   #geom_histogram(color="darkblue", fill=c("lightblue"))
@@ -252,7 +425,7 @@ p1 <- ggplot(df, aes(x=value,color=variable))+
   scale_color_manual(values=c("#999999", "#E69F00", "#56B4E9")) +facet_wrap(~type) +theme_classic()
 
 p1
-ggsave(p1,file="/binf-isilon/alab/projects/ECT2_TC/hyperTRIBE/pipeline/plots/correlation_of_editing_with_ADAR_SHOOTS.pdf",width=4.5,height=2.5)
+ggsave(p1,file="/binf-isilon/alab/projects/ECT2_TC/hyperTRIBE/pipeline/plots/correlation_of_editing_with_ADAR_ROOTS_ECT2.pdf",width=3.5,height=2.5)
 
 
 
@@ -260,66 +433,7 @@ ggsave(p1,file="/binf-isilon/alab/projects/ECT2_TC/hyperTRIBE/pipeline/plots/cor
 ###Box plots with hits/p-value/editing proportions vs. expression (no expression-bias for p-values! )
 ################################################################################################
 
-pl <- pos.list.ECT2[["roots"]]
-expressed_genes_roots <- genes.list$genes.roots.expressed
-
-mycuts <- cut2(log2(c(expr.list_ECT2$roots.expr,expr.list_ECT2$shoots.expr)+1),g=9,onlycuts = T)
-
-g10 <- as.numeric(cut2(log(expr.list_ECT2$roots.expr+1),cuts = mycuts))
-names(g10) <- names(expr.list_ECT2$roots.expr)
-table(g10)
-
-min.p <- tapply(pl$padj,pl$gene,function(x) -log10(min(x,na.rm=T)))
-n.hits <- tapply(pl$prop,pl$gene,function(x) length(x))
-max.prop <- tapply(pl$prop,pl$gene,function(x) mean(x))
-
-
-mp <- rep(0,length(expressed_genes_roots))
-ge <- rep(0,length(expressed_genes_roots))
-nh <- rep(0,length(expressed_genes_roots))
-minp <- rep(0,length(expressed_genes_roots))
-names(mp) <- expressed_genes_roots
-names(ge) <- expressed_genes_roots
-names(nh) <- expressed_genes_roots
-names(minp) <- expressed_genes_roots
-
-
-mp[Reduce(intersect,list(names(expr.gene),names(max.prop),names(mp)))] <- max.prop[Reduce(intersect,list(names(expr.gene),names(max.prop),names(mp)))]
-ge[intersect(names(ge),names(expr.gene))] <- expr.gene[intersect(names(ge),names(expr.gene))]
-minp[Reduce(intersect,list(names(expr.gene),names(min.p),names(minp)))] <- min.p[Reduce(intersect,list(names(expr.gene),names(min.p),names(minp)))]
-nh[Reduce(intersect,list(names(expr.gene),names(nh),names(n.hits)))] <- n.hits[Reduce(intersect,list(names(expr.gene),names(nh),names(n.hits)))]
-
-mp
-length(ge)
-mpgdat <- data.frame("expr"=log2(ge+1),"max.prop"=mp,"min.p"=minp,"n.hits"=nh,"g10"=g10[row.names(mpgdat)])
-head(mpgdat)
-mpgdat <- mpgdat[(apply(mpgdat,1,function(x) sum(is.infinite(x))==0)),]
-
-table(mpgdat$g10)
-boxplot(mpgdat$min.p~mpgdat$g10)
-boxplot(mpgdat$n.hits~mpgdat$g10)
-
-
-#mpgdat$expr <- (cut(log(mpgdat$expr+1),breaks = c(-1,0,1,3,5,10,100000)))
-#mpgdat$expr <- mpgdat$expr
-#mpgdat$max.prop <- (cut(as.vector(mpgdat$max.prop),breaks = c(-1,0,0.01,0.05,0.1,0.25,0.5,1)))
-mpgdat$max.prop <- (cut(as.vector(mpgdat$max.prop),20))
-
-mpgdat$min.p <- (cut(mpgdat$min.p,breaks = c(-1,0,2,3,5,7,10,50000)))
-mpgdat$n.hits <- (cut(mpgdat$n.hits,breaks = c(-1,0,1,2,5,10,100000)))
-
-p1  <- ggplot(mpgdat,aes(y=log(expr+1), x=(n.hits))) + geom_boxplot(fill="#E69F00",outlier.size = 0.5) + theme_bw() + xlab("Number of hits in gene")
-p1
-p2  <- ggplot(mpgdat,aes(y=log(expr+1), x=(max.prop))) + geom_boxplot(fill="#E69F00",outlier.size = 0.5) + theme_bw() + xlab("Max editing proportion in gene")
-p2
-p3  <- ggplot(mpgdat,aes(y=log(expr+1), x=(min.p))) + geom_boxplot(fill="#E69F00",outlier.size = 0.5) + theme_classic() + xlab("Minimum p-value in gene")
-p3
-
-p4 <- grid.arrange(p1,p2,p3,ncol=3)
-
-ggsave(p4,file="/binf-isilon/alab/projects/ECT2_TC/hyperTRIBE/pipeline/plots/ECT2_hyperTRIBE_roots_expr_vs_editing_hits_pval.pdf",width=6.4,height=3.33)
-
-
+#migrated to figure4 plots code (even though the plot is figure2)
 
 
 #################################################################################
@@ -327,6 +441,8 @@ ggsave(p4,file="/binf-isilon/alab/projects/ECT2_TC/hyperTRIBE/pipeline/plots/ECT
 #are roots specific genes more expressed in roots?
 #################################################################################
 #################################################################################
+load(file="/binf-isilon/alab/projects/ECT2_TC/hyperTRIBE/targets/genes.list_ECT3.Rdat")
+colnames(tpm.mat.collapsed)
 
 expressed.both <- intersect(genes.list$genes.shoots.expressed,genes.list$genes.roots.expressed)
 genes.shoots.expressed <- genes.list$genes.shoots[genes.list$genes.shoots %in% expressed.both]
@@ -384,99 +500,30 @@ gdrsids$micseq <- gdrsids$V1 %in% micGR$genes[,1]
 gdrsids$desc <- as.vector(gdrsids$V3)
 gdrsids <- gdrsids[,-c(3:4)]
 
-write.table(gdrsids,file="/binf-isilon/alab/projects/ECT2_TC/hyperTRIBE/roots_specific_photosynthesis_genes.txt",quote=F,col.names = T,sep="\t",row.names = F)
+gdrsids
+write.table(gdrsids,file="/binf-isilon/alab/projects/ECT2_TC/hyperTRIBE/roots_specific_photosynthesis_genes_ECT3.txt",quote=F,col.names = T,sep="\t",row.names = F)
 
-scatdf[myfg,]
-mybg <- genes.list$genes.expressed
-
-log2(rowMeans(prot_expr[myfg,-c(1,3,5,7,9,11)])/rowMeans(prot_expr[myfg,c(1,3,5,7,9,11)]))
-rowMeans(tpm.mat.collapsed[myfg,grep("Rc",colnames(tpm.mat.collapsed))])
-rowMeans(tpm.mat.collapsed[myfg,grep("Re",colnames(tpm.mat.collapsed))])
-
-rowMeans(tpm.mat.collapsed[myfg,grep("Sc",colnames(tpm.mat.collapsed))])
-rowMeans(tpm.mat.collapsed[myfg,grep("Se",colnames(tpm.mat.collapsed))])
-
-target.set.list$roots[myfg,]
-target.set.list$union[myfg,]
-par(mfrow=c(2,2))
-par(mar=c(4,4,4,4))
-plot(de.roots[myfg,]$new.p.levels,de.shoots[myfg,]$new.p.levels,ylim=c(0,8),pch=16,xlim=c(0,8))
-abline(0,1)
-plot(de.roots[myfg,]$old.p,de.shoots[myfg,]$old.p,ylim=c(0,8),pch=16,xlim=c(0,8))
-abline(0,1)
-plot(de.roots[myfg,]$new.p.delay,de.shoots[myfg,]$new.p.delay,ylim=c(0,8),pch=16,xlim=c(0,8))
-abline(0,1)
-plot(de.roots[myfg,]$new.p,de.shoots[myfg,]$new.p,ylim=c(0,8),pch=16,xlim=c(0,8))
-abline(0,1)
-
-myfg <- names(rowSums(gdrsids[,6:7])>0)
-
-library(gProfileR)
-mysc <- gprofiler(myfg, organism = "athaliana", ordered_query = F,
-                  region_query = F, max_p_value = 0.05, min_set_size = 0,
-                  min_isect_size = 0, correction_method = "analytical",custom_bg = mybg,
-                  hier_filtering = "none", domain_size = "annotated",
-                  numeric_ns = "", include_graph = F, src_filter = NULL)
-
-mysc[order(mysc$p.value),]
-
-mydf <- rbind(sspec_shoots,sspec_roots,rspec_shoots,rspec_roots)
-head(mydf)
-
-
-mymin <- min(c(lgss.shoots,lgss.roots,lgrs.shoots,lgrs.roots))
-mymax <- max(c(lgss.shoots,lgss.roots,lgrs.shoots,lgrs.roots,lgbt.roots,lgbt.shoots))
-
-par(mfrow=c(1,1))
-plot(lgss.roots,lgss.shoots,ylim=c(0,mymax),xlim=c(0,mymax),cex=0.2,xlab="Expression in roots (log(tpm+1))",ylab="Expression in shoots (log(tpm+1))")
-points(lgrs.roots,lgrs.shoots,col="red",cex=0.2)
-#points(lgss.roots,lgss.shoots,col="blue",cex=0.2)
-abline(0,1,lty=2)
-
-plot(lgnn.roots,lgnn.shoots,ylim=c(0,mymax),xlim=c(0,mymax),cex=0.2,xlab="Expression in roots (log(tpm+1))",ylab="Expression in shoots (log(tpm+1))")
-abline(0,1,lty=2)
 
 #df <- data.frameshoots"=lgss.shoots)
-scatterPlot <- ggplot(scatdf,aes(x=shoots,y=roots,fill=type)) + 
+scatterPlot <- ggplot(scatdf,aes(x=log2(shoots+1),y=log2(roots+1),fill=type)) + 
   geom_bin2d(bins=100) +
   scale_color_manual(values = c('#999999','#E69F00')) + 
-  geom_abline(lty=2) + xlab("Expression in shoots") + ylab("Expression in roots") +
+  geom_abline(lty=2) + xlab("log2(TPM +1) in shoots") + ylab("log2(TPM +1) in roots") +
   theme_classic()
 scatterPlot
-ggsave(scatterPlot,file="/binf-isilon/alab/projects/ECT2_TC/hyperTRIBE/pipeline/plots/scatter_cell_specific_target_expression.pdf",width=7,height=6)
+ggsave(scatterPlot,file="/binf-isilon/alab/projects/ECT2_TC/hyperTRIBE/pipeline/plots/scatter_cell_specific_target_expression_ECT3.pdf",width=7,height=6)
 
-plot(lgbt.roots,lgbt.shoots,ylim=c(0,mymax),xlim=c(0,mymax),cex=0.2,xlab="Expression in roots (log(tpm+1))",ylab="Expression in shoots (log(tpm+1))")
-abline(0,1,lty=2)
-
-points(lgbt.roots,lgbt.shoots,col="red",cex=0.2)
-
-apply(shoots.spec[,grep("Sc",colnames(shoots.spec))],1,sd)
-
-sd(rowMeans(shoots.spec[,grep("Sc",colnames(shoots.spec))]))
-
-mean(rowMeans(shoots.spec[,grep("Rc",colnames(shoots.spec))]))
-sd(rowMeans(shoots.spec[,grep("Rc",colnames(shoots.spec))]))
-
-mean(rowMeans(roots.spec[,grep("Rc",colnames(shoots.spec))]))
-mean(rowMeans(roots.spec[,grep("Sc",colnames(shoots.spec))]))
-
-mean(rowMeans(shared.tpm[,grep("Rc",colnames(shoots.spec))]))
-mean(rowMeans(shared.tpm[,grep("Sc",colnames(shoots.spec))]))
 
 mydf.list <- list()
-
-gene <- "AT1G61520"
 for(gene in myfg)
 {
   my.m <- tapply((tpm.mat.collapsed[gene,]),rep(1:6,each=5),mean)
   my.sd <- tapply((tpm.mat.collapsed[gene,]),rep(1:6,each=5),sd)
-  my.m.prot <- tapply((prot_expr[gene,]),rep(c(1,2),6),mean)
-  my.sd.prot <- tapply((prot_expr[gene,]),rep(c(1,2),6),sd)
-  my.sd <- c(my.sd,my.sd.prot)
-  my.m <- c(my.m,my.m.prot)
+  my.sd <- c(my.sd)
+  my.m <- c(my.m)
   
-  name <- c("root_c","root_s","root_t","shoot_c","shoot_s","shoot_t","prot_wt","prot_mut")
-  type <- c(rep("root",3),rep("shoot",3),rep("prot",2))
+  name <- c("root_c","root_s","root_t","shoot_c","shoot_s","shoot_t")
+  type <- c(rep("root",3),rep("shoot",3))
   mydf.list[[gene]] <- data.frame("gene"=gene,"type"=type,"name"=name,"mean"=my.m,"sd"=my.sd)
   
 }
@@ -492,10 +539,12 @@ p<- ggplot(mydf, aes(x=name, y=mean, fill=type)) +
                 position=position_dodge(.9)) + facet_wrap(~gene, scales="free_y")
 
 p
-ggsave(p,file="/binf-isilon/alab/projects/ECT2_TC/hyperTRIBE/pipeline/plots/genes_specific_expression_barplots.pdf",width=8,height=8)
+ggsave(p,file="/binf-isilon/alab/projects/ECT2_TC/hyperTRIBE/pipeline/plots/genes_specific_expression_barplots_ECT3.pdf",width=8,height=8)
 
+####################################################################################
+##############PROTOPLAST SPECIFICITY AND HYPERTIRBE editing proportion##############
+####################################################################################
 
-##############PROTOPLAST SPECIFICITY AND HYPERTIRBE editing proportion
 heg <- pos.list[[1]][which(pos.list[[1]]$meta$prop>0.25)]$genes[,1]
 leg <- pos.list[[1]][which(pos.list[[1]]$meta$prop<0.01)]$genes[,1]
 
@@ -663,49 +712,162 @@ p1
 
 
 
-
+###########################################################################
 ############################### single cell proportions ###################
-
+###########################################################################
 
 scm <- read.csv2("/binf-isilon/alab/projects/ECT2_TC/protoplast_markers/denyer_markers/GSE123818_Root_single_cell_wt_datamatrix.csv",sep=",",header = T,row.names = 1)
 scm <- as.matrix(scm)
 
+calcCoex <- function(ect2,scm,posGR)
+{
+  expr_mat <- log2(scm+1)
+  mean.prop <- tapply(posGR$prop,posGR$gene,function(x) mean(x))
+  ect2_prop <- scm[ect2,]/colSums(scm)
+  ect2_on <- scm[ect2,]>0
+  cgenes <- intersect(names(mean.prop),row.names(scm))
+  #rgenes <- sample(row.names(scm),100)
+  #rgenes <- c(ect2,rgenes)
+  #cosum <- matrix(0,ncol=length(rgenes),nrow=length(cgenes))
+  cosum <- rep(0,length(cgenes))
+  for(j in 1:length(cgenes))
+  {
+      #cosum[j,] <- rowSums(expr_mat[cgenes[j],] * expr_mat[rgenes,] > 0)/sum(expr_mat[cgenes[j],]>0)
+      #cosum[j,k] <- sum( (scm[cgenes[j],]>0.5) * (scm[ect2,]>0.5) )/sum(scm[cgenes[j],]>0.5)
+      cosum[j] <- sum( (scm[cgenes[j],]>0) * (scm[ect2,]>0))/sum(scm[cgenes[j],]>0)
+      #cosum[j,k] <- cor(expr_mat[cgenes[j],],expr_mat[rgenes[k],])
 
-pl <- pos.list.ECT2[["roots"]]
-min.p <- tapply(pl$padj,pl$gene,function(x) -log10(min(x,na.rm=T)))
-n.hits <- tapply(pl$prop,pl$gene,function(x) length(x))
-max.prop <- tapply(pl$prop,pl$gene,function(x) mean(x))
+    #cosum[j,] <- apply(expr_mat[c(rgenes),],1,function(x) sum(x>1 & expr_mat[cgenes[j],]>1) )/sum(expr_mat[cgenes[j],]>1)
+  }
+  #colnames(cosum) <- rgenes
+  #names(cosum) <- rgenes
+  names(cosum) <- cgenes
+  mydf <- data.frame("proportion"=mean.prop[cgenes],"cosum"=cosum)
+  return(mydf)
+}
 
-head(scm)
+library(Hmisc)
+
+tgene <- "AT3G01220"
 ect2 <- "AT3G13460"
 ect3 <- "AT5G61020"
-ect2_prop <- scm[ect2,]/colSums(scm)
+hakai <- "AT5G01160"
+mta <- "AT4G10760"
+mtb <- "AT4G09980"
+vir <- "AT3G05680"
+fip37 <- "AT3G54170"
+alkbh2 <- "AT2G22260"
+rgene <- sample(row.names(scm),1)
 
-ect2 <- sample(row.names(scm),1)
+mydf <- calcCoex(ect2,scm,pos.list.ECT2[["roots"]])
+head(mydf)
+rmat <- tapply(mydf[,2],cut2(mydf[,1],g=10),mean)
+plot(rmat)
 
-ect2_plus <- as.vector(scm[ect2,])>0
-ect2_minus <- as.vector(scm[ect2,])==0
-  
-psrat <- rep(0,nrow(scm))
-names(psrat) <- row.names(scm)
-for(i in row.names(scm))
+
+mydf <- calcCoex(ect3,scm,pos.list.ECT2[["roots"]])
+boxplot(mydf$proportion~cut2(mydf$cosum,g=10),outline=F)
+
+mydf <- calcCoex(rgene,scm,pos.list.ECT2[["roots"]])
+boxplot(mydf$proportion~cut2(mydf$cosum,g=10),outline=F)
+
+calcEnt <- function(x)
 {
-  ps <- sum(scm[i,ect2_plus])
-  ms <- sum(scm[i,ect2_minus])
-  psrat[i] <- ps/(ps+ms)
+  p <- x/sum(x)
+  p <- p[p>0]
+  e <- -sum(p*log2(p))
+  return(e)
 }
-mep <- tapply(pos.list.ECT2[[1]]$prop,pos.list.ECT2[[1]]$gene,mean)
-  
-ci <- (psrat[names(mep)])
-co <- (psrat[!(names(psrat) %in% names(mep))])
+ent <- apply(log2(scm+1),1,function(x) calcEnt(x))
+summary(ent)
+boxplot(ent[row.names(mydf)]~cut2(mydf$cosum,g=10),outline=F,ylab="")
 
 
-etab <- rbind(table(c(scm[agene,ect2_minus]>0)),table(c(scm[agene,ect2_plus]>0)))
-fisher.test(etab)$estimate
-summary(scm[agene,ect2_minus]>0)
+rmat <- do.call(rbind,apply(mydf[,-1],2,function(x) tapply(mydf[,1],cut2(x,g=10),mean)))
+plot(rmat[1,],type="l",ylim=c(min(rmat),max(rmat)))
 
-mean(pos.list.ECT2[[1]][grep(agene,pos.list.ECT2[[1]]$gene)]$prop)
-mean(as.numeric())
+for(i in 1:nrow(rmat))
+{
+  points(rmat[i,],type="l")
+}
+points(rmat[1,],col="red",type="l")
+
+boxplot(mydf$proportion~cut2(mydf[,5],g=10),outline=F)
+
+boxplot(mydf$proportion~cut2(mydf$cosum,g=10),outline=F)
+
+mydf <- calcCoex(ect3,scm,pos.list.ECT3[["roots"]])
+boxplot(mydf$proportion~cut2(mydf$cosum,g=20),outline=F)
+
+
+# #setwd("/binf-isilon/alab/projects/ECT2_TC/protoplast_markers/denyer_markers/")
+# load(file="/binf-isilon/alab/projects/ECT2_TC/protoplast_markers/denyer_markers/scSorter_cell_annotations.Rdat")
+# ptypes <- rts$Pred_Type
+# table(ptypes)
+# eapp <- t(apply(expr_mat[cgenes,],1,function(x) tapply(x,ptypes,mean)))
+# eapp <- t(apply(eapp,1,function(x) x/sum(x)))
+# mean.prop <- tapply(posGR$prop,posGR$gene,function(x) mean(x))
+# eapp_means <- apply(eapp,2,function(x) tapply(x,cut(mean.prop[cgenes],5),mean))
+# 
+# par(mfrow=c(1,5))
+# barplot(eapp_means[1,],las=2,ylim=c(0,.3))
+# barplot(eapp_means[2,],las=2,ylim=c(0,.3))
+# barplot(eapp_means[3,],las=2,ylim=c(0,.3))
+# barplot(eapp_means[4,],las=2,ylim=c(0,.3))
+# barplot(eapp_means[5,],las=2,ylim=c(0,.3))
+# 
+# #pl <- pos.list.ECT2[["roots"]]
+# #min.p <- tapply(pl$padj,pl$gene,function(x) -log10(min(x,na.rm=T)))
+# #n.hits <- tapply(pl$prop,pl$gene,function(x) length(x))
+# #max.prop <- tapply(pl$prop,pl$gene,function(x) mean(x))
+# 
+# #head(scm)
+# 
+# max.prop <- tapply(posGR$prop,posGR$gene,function(x) max(x))
+# sql <- (cut2(sqrt(max.prop),g=10))
+# names(sql) <- names(max.prop)
+# 
+# 
+# gplus <- scm["AT1G71900",]>0
+# sum(scm[ect2,which(gplus)]>0)/sum(gplus)
+# 
+# ect2_plus <- 
+# 
+# 
+# #ect2 <- sample(row.names(scm),1)
+# 
+# ect2_plus <- as.vector(scm[ect2,])>0
+# ect2_minus <- as.vector(scm[ect2,])==0
+# rv <- rep(0,nrow(scm))
+# for(myg in 1:nrow(scm))
+# {
+#   rv[myg] <- sum(scm[myg,ect2_plus])/sum(scm[myg,ect2_minus]) 
+# }
+# names(rv) <- row.names(scm)
+# tr <- tapply((rv[names(max.prop)]),sql[names(max.prop)],function(x) mean(x[!is.infinite(x)],na.rm=T))
+# plot(tr)
+# boxplot(rv[names(max.prop)]~sql[names(max.prop)],outline=F)
+# 
+# psrat <- rep(0,nrow(scm))
+# names(psrat) <- row.names(scm)
+# for(i in row.names(scm))
+# {
+#   ps <- sum(scm[i,ect2_plus])
+#   ms <- sum(scm[i,ect2_minus])
+#   psrat[i] <- ps/(ps+ms)
+# }
+# mep <- tapply(pos.list.ECT2[[1]]$prop,pos.list.ECT2[[1]]$gene,mean)
+#   
+# ci <- (psrat[names(mep)])
+# co <- (psrat[!(names(psrat) %in% names(mep))])
+# 
+# 
+# etab <- rbind(table(c(scm[agene,ect2_minus]>0)),table(c(scm[agene,ect2_plus]>0)))
+# fisher.test(etab)$estimate
+# summary(scm[agene,ect2_minus]>0)
+# 
+# mean(pos.list.ECT2[[1]][grep(agene,pos.list.ECT2[[1]]$gene)]$prop)
+# mean(as.numeric())
 
 scm2 <- scm[row.names(scm) %in% unique(pl$gene),]
 
@@ -765,4 +927,20 @@ library(infotheo)
 1-mutinformation(scm[ect3,],scm[ect2,], method="emp")
 
 hist(1-cos,breaks=100)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
